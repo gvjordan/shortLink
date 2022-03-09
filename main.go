@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -143,6 +145,47 @@ func returnSingleLink(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+type apiAddLinkBody struct {
+	URL   string `json:"URL"`
+	Token string `json:"Token"`
+}
+
+func generateRandomString(n int) string {
+	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letter[rand.Intn(len(letter))]
+	}
+	return string(b)
+}
+
+func addNewLink(w http.ResponseWriter, r *http.Request) {
+	var sL apiAddLinkBody
+	err := json.NewDecoder(r.Body).Decode(&sL)
+	errHandler(err, "api")
+
+	fmt.Println(sL)
+	db, err := sql.Open("mysql", dbLink)
+	errHandler(err, "db")
+	defer db.Close()
+	// TODO: check if link already exists
+	shortKey := generateRandomString(5)
+
+	stmt, err := db.Prepare("INSERT INTO links (Name, URL, CreatedAt, CreatedBy) VALUES (?, ?, ?, ?)")
+	errHandler(err, "db")
+	_, err = stmt.Exec(shortKey, sL.URL, int(time.Now().Unix()), r.RemoteAddr)
+	errHandler(err, "db")
+	fmt.Println(shortKey)
+
+	response := apiSingleLinkResponse{
+		ShortLink: shortKey,
+		LongLink:  sL.URL,
+		Success:   true,
+	}
+	json.NewEncoder(w).Encode(response)
+
+}
+
 func redirectFromShortLink(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["id"]
@@ -158,6 +201,8 @@ func handleRequests() {
 	router.HandleFunc("/{id}", redirectFromShortLink)
 	router.HandleFunc("/api", apiPage)
 	router.HandleFunc("/api/get/{id}", returnSingleLink)
+
+	router.HandleFunc("/api/add", addNewLink)
 
 	log.Fatal(http.ListenAndServe(":"+c.Port, router))
 }
