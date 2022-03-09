@@ -42,8 +42,6 @@ func getConf() *Conf {
 	return config
 }
 
-var dbLink string = ""
-
 type sLink struct {
 	Name    string `json:"name"`
 	URL     string `json:"url"`
@@ -107,7 +105,7 @@ func getShortLink(id string) string {
 	}
 
 	if sL.URL == "" {
-		return "http://localhost:8888/"
+		return "http://" + c.Domain + ":" + c.Port + "/"
 	} else {
 		return sL.URL
 	}
@@ -138,7 +136,7 @@ func returnSingleLink(w http.ResponseWriter, r *http.Request) {
 		Success:   true,
 	}
 
-	if response.LongLink == "http://localhost:8888/" {
+	if response.LongLink == "http://"+c.Domain+":"+c.Port+"/" {
 		response.Success = false
 	}
 
@@ -161,11 +159,12 @@ func handleRequests() {
 	router.HandleFunc("/api", apiPage)
 	router.HandleFunc("/api/get/{id}", returnSingleLink)
 
-	log.Fatal(http.ListenAndServe(":8888", router))
+	log.Fatal(http.ListenAndServe(":"+c.Port, router))
 }
 
 var (
-	c *Conf
+	c      *Conf
+	dbLink string
 )
 
 func init() {
@@ -185,6 +184,5 @@ func main() {
 	fmt.Println("DB Name: " + c.DbName)
 	fmt.Println("DB Host: " + c.DbHost)
 	fmt.Println("DB Port: " + c.DbPort)
-	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
 	handleRequests()
 }
