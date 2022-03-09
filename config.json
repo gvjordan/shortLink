@@ -1,0 +1,10 @@
+{
+  "Domain": "localhost",
+  "Port": 8888,
+  "Debug": true,
+  "DbHost": "localhost",
+  "DbPort": 3306,
+  "DbUser": "nuntius",
+  "DbPassword": "nuntius",
+  "DbName": "nuntius"
+}

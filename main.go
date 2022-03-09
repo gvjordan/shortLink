@@ -4,36 +4,42 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	"gopkg.in/yaml.v2"
+	"github.com/spf13/viper"
 )
 
-type conf struct {
-	domain string `yaml:"domain"`
-	port   string `yaml:"port"`
-	debug  bool   `yaml:"debug"`
-	dbUser string `yaml:"db.User"`
-	dbPass string `yaml:"db.Pass"`
-	dbName string `yaml:"db.Name"`
-	dbHost string `yaml:"db.Host"`
-	dbPort string `yaml:"db.Port"`
+type Conf struct {
+	Domain     string
+	Port       string
+	Debug      bool
+	DbUser     string
+	DbPassword string
+	DbName     string
+	DbHost     string
+	DbPort     string
 }
 
-func (c *conf) getConf() *conf {
-	yamlFile, err := ioutil.ReadFile("conf.yaml")
+func getConf() *Conf {
+	viper.SetConfigName("config")
+	viper.SetConfigType("json")
+	viper.AddConfigPath(".")
+	err := viper.ReadInConfig()
+
 	if err != nil {
-		log.Printf("yamlFile.Get err   #%v ", err)
+		fmt.Printf("%v", err)
 	}
-	err = yaml.Unmarshal(yamlFile, c)
+
+	var config = &Conf{}
+	err = viper.Unmarshal(config)
 	if err != nil {
-		log.Fatalf("Unmarshal: %v", err)
+		fmt.Printf("unable to decode into config struct, %v", err)
 	}
-	return c
+
+	return config
 }
 
 var dbLink string = ""
@@ -118,6 +124,7 @@ func apiPage(w http.ResponseWriter, r *http.Request) {
 type apiSingleLinkResponse struct {
 	ShortLink string
 	LongLink  string
+	Success   bool
 }
 
 func returnSingleLink(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +135,13 @@ func returnSingleLink(w http.ResponseWriter, r *http.Request) {
 	response := apiSingleLinkResponse{
 		ShortLink: key,
 		LongLink:  url,
+		Success:   true,
 	}
+
+	if response.LongLink == "http://localhost:8888/" {
+		response.Success = false
+	}
+
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -143,6 +156,7 @@ func handleRequests() {
 	router := mux.NewRouter().StrictSlash(true)
 
 	router.HandleFunc("/", indexPage)
+	router.HandleFunc("/+{id}", returnSingleLink)
 	router.HandleFunc("/{id}", redirectFromShortLink)
 	router.HandleFunc("/api", apiPage)
 	router.HandleFunc("/api/get/{id}", returnSingleLink)
@@ -150,19 +164,27 @@ func handleRequests() {
 	log.Fatal(http.ListenAndServe(":8888", router))
 }
 
-var c conf
+var (
+	c *Conf
+)
+
+func init() {
+	c = getConf()
+	fmt.Println(c)
+	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
+	fmt.Println(dbLink)
+}
 
 func main() {
-	c.getConf()
 	fmt.Println("Starting server...")
-	fmt.Println("Domain: " + c.domain)
-	fmt.Println("Port: " + c.port)
-	fmt.Println("Debug: " + fmt.Sprintf("%t", c.debug))
-	fmt.Println("DB User: " + c.dbUser)
-	fmt.Println("DB Pass: " + c.dbPass)
-	fmt.Println("DB Name: " + c.dbName)
-	fmt.Println("DB Host: " + c.dbHost)
-	fmt.Println("DB Port: " + c.dbPort)
-	dbLink = c.dbUser + ":" + c.dbPass + "@tcp(" + c.dbHost + ":" + c.dbPort + ")/" + c.dbName
+	fmt.Println("Domain: " + c.Domain)
+	fmt.Println("Port: " + c.Port)
+	fmt.Println("Debug: " + fmt.Sprintf("%t", c.Debug))
+	fmt.Println("DB User: " + c.DbUser)
+	fmt.Println("DB Pass: " + c.DbPassword)
+	fmt.Println("DB Name: " + c.DbName)
+	fmt.Println("DB Host: " + c.DbHost)
+	fmt.Println("DB Port: " + c.DbPort)
+	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
 	handleRequests()
 }
