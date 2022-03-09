@@ -1,0 +1,9 @@
+domain: localhost
+port: 8888
+db:
+  username: nuntius
+  password: nuntius
+  host: localhost
+  port: 3306
+  database: nuntius
+debug: true
