@@ -1,10 +1,11 @@
 {
   "Domain": "localhost",
   "Port": 8888,
-  "Debug": true,
   "DbHost": "localhost",
   "DbPort": 3306,
   "DbUser": "nuntius",
   "DbPassword": "nuntius",
-  "DbName": "nuntius"
+  "DbName": "nuntius",
+  "Stats": true,
+  "AllowedTokens": ["TEST-TEST-TEST-TEST", "52fdfc07-2182-654f-163f-5f0f9a621d72"]
 }

@@ -3,10 +3,12 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -16,14 +18,16 @@ import (
 )
 
 type Conf struct {
-	Domain     string
-	Port       string
-	Debug      bool
-	DbUser     string
-	DbPassword string
-	DbName     string
-	DbHost     string
-	DbPort     string
+	Domain        string
+	Port          string
+	Debug         bool
+	DbUser        string
+	DbPassword    string
+	DbName        string
+	DbHost        string
+	DbPort        string
+	AllowedTokens []string
+	Stats         bool
 }
 
 func getConf() *Conf {
@@ -107,6 +111,7 @@ func returnSingleLink(w http.ResponseWriter, r *http.Request) {
 		errorObject := jsonError{
 			Error: "Shortlink error",
 		}
+		sT.ResolveError++
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
@@ -157,6 +162,16 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		errorObject := jsonError{
 			Error: "Invalid JSON",
 		}
+		sT.InvalidJSON++
+		json.NewEncoder(w).Encode(errorObject)
+		return
+	}
+	fmt.Println(sL.Token)
+	if sL.Token == "" || !checkToken(sL.Token) {
+		errorObject := jsonError{
+			Error: "Invalid token",
+		}
+		sT.InvalidToken++
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
@@ -166,6 +181,7 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		errorObject := jsonError{
 			Error: "Database error",
 		}
+		sT.DatabaseError++
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
@@ -179,6 +195,7 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		errorObject := jsonError{
 			Error: "Database error",
 		}
+		sT.DatabaseError++
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
@@ -188,6 +205,7 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		errorObject := jsonError{
 			Error: "Database error",
 		}
+		sT.DatabaseError++
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
@@ -197,6 +215,8 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		LongLink:  sL.URL,
 		Success:   true,
 	}
+
+	sT.LinksShortened++
 
 	json.NewEncoder(w).Encode(response)
 
@@ -208,10 +228,11 @@ func redirectFromShortLink(w http.ResponseWriter, r *http.Request, key string) {
 		errorObject := jsonError{
 			Error: "Shortlink error",
 		}
+		sT.ResolveError++
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
-
+	sT.LinksRedirected++
 	http.Redirect(w, r, url, http.StatusMovedPermanently)
 }
 
@@ -237,6 +258,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	} else if len(router[1]) == 5 {
 		redirectFromShortLink(w, r, router[1])
 
+	} else if len(router[1]) == 6 && router[1][0] == '+' {
+		returnSingleLink(w, r)
 	}
 }
 
@@ -250,13 +273,33 @@ func handleRequests() {
 	log.Fatal(http.ListenAndServe(":"+c.Port, nil))
 }
 
+func denyAccess(w http.ResponseWriter, r *http.Request) {
+	errorObject := jsonError{
+		Error: "Access denied",
+	}
+	sT.AccessDenied++
+	json.NewEncoder(w).Encode(errorObject)
+}
+
+var maxRequests int = 5
+
 func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
-		rL.inc(ip)
-		go rL.expire(ip, 5)
 
 		sT.Requests++
+
+		if rL.current[ip] == nil {
+			rL.inc(ip)
+		} else if rL.current[ip].Count >= maxRequests {
+			sT.FailedRequests++
+			denyAccess(w, r)
+			return
+		} else {
+			rL.inc(ip)
+		}
+		sT.SuccessRequests++
+		go rL.expire(ip, 5)
 
 		next.ServeHTTP(w, r)
 	})
@@ -264,8 +307,15 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 
 type stats struct {
 	Requests        int
+	FailedRequests  int
+	SuccessRequests int
 	LinksShortened  int
 	LinksRedirected int
+	DatabaseError   int
+	ResolveError    int
+	InvalidJSON     int
+	InvalidToken    int
+	AccessDenied    int
 }
 
 var (
@@ -275,16 +325,74 @@ var (
 
 var rL = newRateLimit()
 
+var allowedTokens = map[string]bool{
+	"52fdfc07-2182-654f-163f-5f0f9a621d72": true,
+}
+
+func checkToken(token string) bool {
+	if _, ok := allowedTokens[token]; ok {
+		if allowedTokens[token] {
+			return true
+		}
+	}
+	return false
+}
+
 var sT = stats{
 	Requests:        0,
+	FailedRequests:  0,
+	SuccessRequests: 0,
 	LinksShortened:  0,
 	LinksRedirected: 0,
+	DatabaseError:   0,
+	ResolveError:    0,
+	InvalidJSON:     0,
+	InvalidToken:    0,
+	AccessDenied:    0,
+}
+
+func parseTokens(tokens []string) {
+	for _, token := range tokens {
+		allowedTokens[token] = true
+	}
+}
+
+func handleStats(stat int) {
+	if c.Stats {
+		stat++
+	}
+}
+
+func handleGenerateUUID() {
+	fmt.Println(generateUUID())
+}
+
+func loadConf() {
+	c = getConf()
+	parseTokens(c.AllowedTokens)
+	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
+}
+
+func handleFlags() {
+	debugFlag := flag.Bool("debug", false, "Enable stats")
+	tokenFlag := flag.Bool("token", false, "Generate token")
+
+	flag.Parse()
+	if *debugFlag {
+		c.Debug = true
+		return
+	} else if *tokenFlag {
+		handleGenerateUUID()
+		os.Exit(0)
+	} else {
+		c.Debug = false
+		return
+	}
 }
 
 func main() {
-	c = getConf()
-	fmt.Println(c)
-	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
+	loadConf()
+	handleFlags()
 	fmt.Println("Starting server...")
 	handleRequests()
 }
