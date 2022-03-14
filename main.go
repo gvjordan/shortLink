@@ -3,8 +3,8 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -213,13 +213,32 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleRequests() {
+type uiConfigData struct {
+	Host string
+	Port string
+}
 
+func uipage(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("www/index.html")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	data := uiConfigData{
+		Host: c.Domain,
+		Port: c.Port,
+	}
+	tmpl.Execute(w, data)
+}
+
+func handleRequests() {
+	fmt.Println("test")
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	http.Handle("/api", http.HandlerFunc(apiPage))
 	http.Handle("/api/add", rateLimitMiddleware(http.HandlerFunc(apiAddHandler)))
 	http.Handle("/tokens", http.HandlerFunc(tokenPage))
 	http.Handle("/stats", http.HandlerFunc(statsPage))
+	http.Handle("/ui", http.HandlerFunc(uipage))
 	log.Fatal(http.ListenAndServe(":"+c.Port, nil))
 }
 
@@ -299,45 +318,15 @@ func handleGenerateUUID() {
 	fmt.Println(generateUUID())
 }
 
-func loadConf() {
-	c, err := loadFromFile("config.json")
+func main() {
+	configData, err := newConf()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config file: %s\n", err)
-		fmt.Println("Error loading config file")
-		l.Warning("Failed to load config file")
-		os.Exit(1)
 	}
-	parseTokens(c.AllowedTokens)
-	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
-}
-
-func handleFlags() {
-	debugFlag := flag.Bool("debug", false, "Enable debug")
-	statsFlag := flag.Bool("stats", false, "Enable stats")
-	tokenFlag := flag.Bool("token", false, "Generate token")
-
-	flag.Parse()
-
-	if *tokenFlag {
-		handleGenerateUUID()
-		os.Exit(0)
-	}
-
-	if *debugFlag {
-		c.Debug = true
-	}
-
-	if *statsFlag {
-		c.Stats = true
-	}
-
-}
-
-func main() {
-	c = newConf()
-	l = newLogger("logs.txt")
-	handleFlags()
+	c = configData
 	loadConf()
+	handleFlags()
+	fmt.Println(c)
 	fmt.Println("Starting server...")
 	handleRequests()
 }

@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"os"
 )
 
 type Conf struct {
@@ -41,6 +43,23 @@ func loadFromFile(file string) (*Conf, error) {
 	return config, nil
 }
 
-func newConf() *Conf {
-	return &Conf{}
+func newConf() (*Conf, error) {
+	configData, err := loadFromFile("config.json")
+	if err != nil {
+		return nil, err
+	}
+	return configData, nil
+}
+
+func loadConf() {
+	configData, err := loadFromFile("config.json")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config file: %s\n", err)
+		fmt.Println("Error loading config file")
+		l.Warning("Failed to load config file")
+		os.Exit(1)
+	}
+	c = configData
+	parseTokens(c.AllowedTokens)
+	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
 }

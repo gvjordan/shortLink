@@ -1,0 +1,15 @@
+{
+    "Domain": "localhost",
+    "Port": "8888",
+    "DbHost": "localhost",
+    "DbPort": "3306",
+    "DbUser": "nuntius",
+    "DbPassword": "nuntius",
+    "DbName": "nuntius",
+    "Stats": true,
+    "Logs": true,
+    "LogsPath": "shortlink.txt",
+    "LogsLevel": 4,
+    "LogsOnlyStdout": true,
+    "AllowedTokens": ["TEST-TEST-TEST-TEST", "52fdfc07-2182-654f-163f-5f0f9a621d72"]
+  }

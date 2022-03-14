@@ -1,0 +1,132 @@
+<html data-theme="pastel">
+<head>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.1/dist/tailwind.min.css" rel="stylesheet" type="text/css" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@1.6.1/dist/full.css" rel="stylesheet" type="text/css" />
+  <style>
+    #content {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 33%;
+      -webkit-transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%);
+    }
+  </style>
+  <title>{{.Host}}</title>
+</head>
+<body>
+<div id="content">
+<div id="newURL"><div class="card shadow-lg">
+  <div class="card-body">
+    <h2 class="card-title">{{.Host}}</h2> 
+    <p>Enter in a URL below to create a short link</p>
+    <div id="insideCard"></div>
+  </div>
+</div></div><br />
+<div class="form-control">
+  <div class="relative">
+    <input id="url" type="text" placeholder="" class="w-full pr-16 input input-primary input-bordered"> 
+    <button id="shortNow" onclick="shortenURL();" class="absolute right-0 top-0 rounded-l-none btn btn-primary">Shorten!</button>
+  </div>
+</div> 
+
+
+
+</div>
+<script>
+  const config = {
+    host: "{{.Host}}",
+    port: "{{.Port}}",
+    ssl: false,
+    url: "{{.Host}}:{{.Port}}"
+  };
+
+  function shortCardHTML(id) {
+    return `<div class="card shadow-lg">
+  <div class="card-body">
+    <h2 class="card-title"><a href="${config.url + id}">${config.url + id}</a></h2> 
+    <p><div style="margin-left: auto;
+margin-right: auto;
+width: 50%;">
+<button class="btn "><a href="${config.url}+${id}">Info</a></button> 
+<button class="btn "><a href="${config.url}-${id}">Delete</a></button>
+<button class="btn " onclick="copyShortURL('${id}');">Copy</button>
+</p>
+</div>
+</div> `;
+  }
+
+  function copyShortURL(id) {
+    copyToClipboard(config.url + id);
+  }
+
+  function copyToClipboard(text) {
+    let toCopy = text;
+    var copyFrom = document.createElement("textarea");
+    copyFrom.textContent = toCopy;
+    document.body.appendChild(copyFrom);
+    copyFrom.select();
+    document.execCommand('copy');
+    copyFrom.blur();
+    document.body.removeChild(copyFrom);
+  }
+  
+  
+  function warningHTML(text) {
+    return `<div id="warning" class="alert alert-error">
+  <div class="flex-1">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-6 h-6 mx-2 stroke-current">    
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>                      
+    </svg> 
+    <label>${text}</label>
+    <div id="insideCard"></div>
+  </div>
+</div>`;
+  }
+
+  function addWarning(text) {
+    let card = document.getElementById('insideCard');
+    card.innerHTML = warningHTML(text);
+
+    setTimeout(function () {
+      let warning = document.getElementById('warning');
+      warning.parentNode.removeChild(warning);
+    }, 2000);
+  }
+  
+  function setShortCard(id) {
+    document.getElementById('newURL').innerHTML = shortCardHTML(id);
+  }
+
+  function fetchShort(url) {
+    const http = new XMLHttpRequest();
+    http.open("GET", 'new/?url='+url);
+    http.send();
+    http.onreadystatechange=(e)=>{
+      data = JSON.parse(http.responseText);
+      if (data.status == 'success') {
+        setShortCard(data.shortID);
+      }
+    }
+  }
+
+
+  function shortenURL() {
+        let urlToShorten = document.getElementById('url').value;
+        if (checkUrl(urlToShorten)) {
+          fetchShort(urlToShorten);
+        } else {
+          addWarning('Check input and try again');
+        }
+
+  }
+
+  function checkUrl(s) {
+     var regexp = /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/
+     return regexp.test(s);
+  }
+
+</script>
+
+</body>
+</html>
