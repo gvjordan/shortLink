@@ -9,19 +9,22 @@ import (
 )
 
 type Conf struct {
-	Domain        string
-	Port          string
-	Debug         bool
-	DbUser        string
-	DbPassword    string
-	DbName        string
-	DbHost        string
-	DbPort        string
-	AllowedTokens []string
-	Stats         bool
-	Logs          bool
-	LogsPath      string
-	LogsLevel     int
+	Domain               string
+	Port                 string
+	Debug                bool
+	DbUser               string
+	DbPassword           string
+	DbName               string
+	DbHost               string
+	DbPort               string
+	AllowedTokens        []string
+	Stats                bool
+	Logs                 bool
+	LogsPath             string
+	LogsLevel            int
+	EnableFrontend       bool
+	RateLimitPerIP       int
+	RateLimitPerIPExpire int
 }
 
 func loadFromFile(file string) (*Conf, error) {
@@ -61,5 +64,6 @@ func loadConf() {
 	}
 	c = configData
 	parseTokens(c.AllowedTokens)
+	setRateLimit(c.RateLimitPerIP, c.RateLimitPerIPExpire)
 	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
 }

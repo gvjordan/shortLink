@@ -8,8 +8,11 @@
   "DbName": "nuntius",
   "Stats": true,
   "Logs": true,
-  "LogsPath": "shortlink.txt",
+  "LogsPath": "shortlindk.txt",
   "LogsLevel": 4,
-  "LogsOnlyStdout": true,
+  "LogsOnlyConsole": true,
+  "EnableFrontend": false,
+  "RateLimitPerIP": 5,
+  "RateLimitPerIPExpire": 60,
   "AllowedTokens": ["TEST-TEST-TEST-TEST", "52fdfc07-2182-654f-163f-5f0f9a621d72"]
 }

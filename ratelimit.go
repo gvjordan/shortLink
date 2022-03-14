@@ -40,3 +40,8 @@ func newRateLimit() *rateLimit {
 		current: make(map[string]*rateUser),
 	}
 }
+
+func setRateLimit(limit int, expire int) {
+	limitByIP = limit
+	limitByIPExpire = expire
+}
