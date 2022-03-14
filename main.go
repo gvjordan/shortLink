@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -14,40 +13,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	"github.com/spf13/viper"
 )
-
-type Conf struct {
-	Domain        string
-	Port          string
-	Debug         bool
-	DbUser        string
-	DbPassword    string
-	DbName        string
-	DbHost        string
-	DbPort        string
-	AllowedTokens []string
-	Stats         bool
-}
-
-func getConf() *Conf {
-	viper.SetConfigName("config")
-	viper.SetConfigType("json")
-	viper.AddConfigPath(".")
-	err := viper.ReadInConfig()
-
-	if err != nil {
-		fmt.Printf("%v", err)
-	}
-
-	var config = &Conf{}
-	err = viper.Unmarshal(config)
-	if err != nil {
-		fmt.Printf("unable to decode into config struct, %v", err)
-	}
-
-	return config
-}
 
 type sqlLink struct {
 	ID        int
@@ -132,22 +98,6 @@ func returnSingleLink(w http.ResponseWriter, r *http.Request) {
 type apiAddLinkBody struct {
 	URL   string `json:"URL"`
 	Token string `json:"Token"`
-}
-
-func generateUUID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	uuid := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-	return uuid
-}
-
-func generateRandomString(n int) string {
-	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letter[rand.Intn(len(letter))]
-	}
-	return string(b)
 }
 
 type jsonError struct {
@@ -305,21 +255,9 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-type stats struct {
-	Requests        int
-	FailedRequests  int
-	SuccessRequests int
-	LinksShortened  int
-	LinksRedirected int
-	DatabaseError   int
-	ResolveError    int
-	InvalidJSON     int
-	InvalidToken    int
-	AccessDenied    int
-}
-
 var (
 	c      *Conf
+	l      *logger
 	dbLink string
 )
 
@@ -357,42 +295,49 @@ func parseTokens(tokens []string) {
 	}
 }
 
-func handleStats(stat int) {
-	if c.Stats {
-		stat++
-	}
-}
-
 func handleGenerateUUID() {
 	fmt.Println(generateUUID())
 }
 
 func loadConf() {
-	c = getConf()
+	c, err := loadFromFile("config.json")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config file: %s\n", err)
+		fmt.Println("Error loading config file")
+		l.Warning("Failed to load config file")
+		os.Exit(1)
+	}
 	parseTokens(c.AllowedTokens)
 	dbLink = c.DbUser + ":" + c.DbPassword + "@tcp(" + c.DbHost + ":" + c.DbPort + ")/" + c.DbName
 }
 
 func handleFlags() {
-	debugFlag := flag.Bool("debug", false, "Enable stats")
+	debugFlag := flag.Bool("debug", false, "Enable debug")
+	statsFlag := flag.Bool("stats", false, "Enable stats")
 	tokenFlag := flag.Bool("token", false, "Generate token")
 
 	flag.Parse()
-	if *debugFlag {
-		c.Debug = true
-		return
-	} else if *tokenFlag {
+
+	if *tokenFlag {
 		handleGenerateUUID()
 		os.Exit(0)
-	} else {
-		c.Debug = false
-		return
 	}
+
+	if *debugFlag {
+		c.Debug = true
+	}
+
+	if *statsFlag {
+		c.Stats = true
+	}
+
 }
 
 func main() {
-	loadConf()
+	c = newConf()
+	l = newLogger("logs.txt")
 	handleFlags()
+	loadConf()
 	fmt.Println("Starting server...")
 	handleRequests()
 }
