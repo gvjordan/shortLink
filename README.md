@@ -1,4 +1,4 @@
-<h1  align="center">Welcome to shortLink 👋</h1>
+<h1  align="center">Welcome to shortLink</h1>
 
 <p>
 
