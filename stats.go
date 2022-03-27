@@ -13,8 +13,29 @@ type stats struct {
 	AccessDenied    int
 }
 
-func handleStats(stat int) {
+func handleStats(thisStat string) {
 	if c.Stats {
-		stat++
+		switch thisStat {
+		case "Requests":
+			sT.Requests++
+		case "FailedRequests":
+			sT.FailedRequests++
+		case "SuccessRequests":
+			sT.SuccessRequests++
+		case "LinksShortened":
+			sT.LinksShortened++
+		case "LinksRedirected":
+			sT.LinksRedirected++
+		case "DatabaseError":
+			sT.DatabaseError++
+		case "ResolveError":
+			sT.ResolveError++
+		case "InvalidJSON":
+			sT.InvalidJSON++
+		case "InvalidToken":
+			sT.InvalidToken++
+		case "AccessDenied":
+			sT.AccessDenied++
+		}
 	}
 }

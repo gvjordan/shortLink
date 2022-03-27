@@ -57,11 +57,8 @@ func returnSingleLink(w http.ResponseWriter, r *http.Request) {
 	key := vars["id"]
 	url, err := getShortLink(key)
 	if err != nil {
-		errorObject := jsonError{
-			Error: "Shortlink error",
-		}
-		sT.ResolveError++
-		json.NewEncoder(w).Encode(errorObject)
+		handleStats("ResolveError")
+		sendErrorJSON(w, r, "Invalid shortLink")
 		return
 	}
 
@@ -95,27 +92,21 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		errorObject := jsonError{
 			Error: "Invalid JSON",
 		}
-		sT.InvalidJSON++
+		handleStats("InvalidJSON")
 		json.NewEncoder(w).Encode(errorObject)
 		return
 	}
 	fmt.Println(sL.Token)
 	if sL.Token == "" || !checkToken(sL.Token) {
-		errorObject := jsonError{
-			Error: "Invalid token",
-		}
-		sT.InvalidToken++
-		json.NewEncoder(w).Encode(errorObject)
+		handleStats("InvalidToken")
+		sendErrorJSON(w, r, "Invalid Token")
 		return
 	}
 
 	db, err := sql.Open("mysql", dbLink)
 	if err != nil {
-		errorObject := jsonError{
-			Error: "Database error",
-		}
-		sT.DatabaseError++
-		json.NewEncoder(w).Encode(errorObject)
+		handleStats("DatabaseError")
+		sendErrorJSON(w, r, "Database error")
 		return
 	}
 
@@ -125,21 +116,15 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 
 	stmt, err := db.Prepare("INSERT INTO links (Name, URL, CreatedAt, CreatedBy) VALUES (?, ?, ?, ?)")
 	if err != nil {
-		errorObject := jsonError{
-			Error: "Database error",
-		}
-		sT.DatabaseError++
-		json.NewEncoder(w).Encode(errorObject)
+		handleStats("DatabaseError")
+		sendErrorJSON(w, r, "Database error")
 		return
 	}
 
 	_, err = stmt.Exec(shortKey, sL.URL, int(time.Now().Unix()), r.RemoteAddr)
 	if err != nil {
-		errorObject := jsonError{
-			Error: "Database error",
-		}
-		sT.DatabaseError++
-		json.NewEncoder(w).Encode(errorObject)
+		handleStats("DatabaseError")
+		sendErrorJSON(w, r, "Database error")
 		return
 	}
 
@@ -149,7 +134,7 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 		Success:   true,
 	}
 
-	sT.LinksShortened++
+	handleStats("LinksShortened")
 
 	json.NewEncoder(w).Encode(response)
 
@@ -158,13 +143,10 @@ func addNewLink(w http.ResponseWriter, r *http.Request) {
 func redirectFromShortLink(w http.ResponseWriter, r *http.Request, key string) {
 	url, err := getShortLink(key)
 	if err != nil {
-		errorObject := jsonError{
-			Error: "Shortlink error",
-		}
-		sT.ResolveError++
-		json.NewEncoder(w).Encode(errorObject)
+		handleStats("ResolveError")
+		sendErrorJSON(w, r, "Invalid shortLink")
 		return
 	}
-	sT.LinksRedirected++
+	handleStats("LinksRedirected")
 	http.Redirect(w, r, url, http.StatusMovedPermanently)
 }

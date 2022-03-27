@@ -24,16 +24,15 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		indexPage(w, r)
 	} else if len(router[1]) == 5 {
 		redirectFromShortLink(w, r, router[1])
-
+		handleStats("SuccessRequests")
 	} else if len(router[1]) == 6 && router[1][0] == '+' {
 		returnSingleLink(w, r)
 	}
 }
 
-func denyAccess(w http.ResponseWriter, r *http.Request) {
+func sendErrorJSON(w http.ResponseWriter, r *http.Request, message string) {
 	errorObject := jsonError{
-		Error: "Rate Limit Exceeded",
+		Error: message,
 	}
-	sT.AccessDenied++
 	json.NewEncoder(w).Encode(errorObject)
 }

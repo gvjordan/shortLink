@@ -26,18 +26,17 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
 
-		sT.Requests++
+		handleStats("Requests")
 
 		if rL.current[ip] == nil {
 			rL.inc(ip)
 		} else if rL.current[ip].Count >= limitByIP {
-			sT.FailedRequests++
-			denyAccess(w, r)
+			handleStats("FailedRequests")
+			sendErrorJSON(w, r, "Too many requests from this IP")
 			return
 		} else {
 			rL.inc(ip)
 		}
-		sT.SuccessRequests++
 		go rL.expire(ip, limitByIPExpire)
 
 		next.ServeHTTP(w, r)

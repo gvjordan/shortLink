@@ -53,3 +53,24 @@ func handleImportSql() {
 
 	fmt.Println("Success: sql/tables.sql executed")
 }
+
+func addNewToken(token string) {
+
+	if token == "" || token == "0" {
+		token = generateUUID()
+	}
+
+	sqlStatement := "INSERT INTO tokens (token) VALUES (?)"
+	db, err := sql.Open("mysql", dbLink)
+	if err != nil {
+		fmt.Println("Error: Unable to connect to database")
+		os.Exit(1)
+	}
+	defer db.Close()
+	_, err = db.Exec(sqlStatement, token)
+	if err != nil {
+		fmt.Println("Error: Unable to add token")
+		os.Exit(1)
+	}
+	fmt.Println("Success: Token added")
+}
